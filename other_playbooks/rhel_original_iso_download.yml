@@ -1,0 +1,46 @@
+---
+- hosts: bastion_host
+  gather_facts: no
+  become: true
+
+  tasks:
+
+  - name: "Check if original ISO file is already present"
+    stat:
+      path: "{{ org_iso }}"
+    register: org_iso_is_present
+
+  - name: "Find the name of the key file for accessing Red Hat CDN, we'll use this for downloading the ISO file"
+    find:
+      paths: /etc/pki/entitlement/
+      file_type: file
+      patterns: '*-key.pem'
+    register: rhcdn_key
+    when: not org_iso_is_present.stat.exists
+
+  - name: "Find the name of the cert file for accessing Red Hat CDN, we'll use this for downloading the ISO file"
+    find:
+      paths: /etc/pki/entitlement/
+      file_type: file
+      excludes: '*-key*'
+      patterns: '*.pem'
+    register: rhcdn_cert
+    when: not org_iso_is_present.stat.exists   
+
+  - name: Print RHCDN cert file
+    ansible.builtin.debug:
+      msg: "{{ rhcdn_cert.files[0].path }}"
+    when: not org_iso_is_present.stat.exists
+
+  - name: Print RHCDN key file
+    ansible.builtin.debug:
+      msg: "{{ rhcdn_key.files[0].path }}"
+    when: not org_iso_is_present.stat.exists
+
+  - name: "Download Red Hat ISO if it's not there"
+    get_url:
+      url: "{{ iso_url }}"
+      dest: "{{ org_iso }}"
+      client_cert: "{{ rhcdn_cert.files[0].path }}"
+      client_key: "{{ rhcdn_key.files[0].path }}"
+    when: not org_iso_is_present.stat.exists

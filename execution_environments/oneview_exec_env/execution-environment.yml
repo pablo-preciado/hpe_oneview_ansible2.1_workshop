@@ -1,0 +1,11 @@
+---
+version: 1
+
+dependencies:
+  galaxy: requirements.yml
+  python: requirements.txt
+
+additional_build_steps:
+  append:
+    - ENV PYTHONPATH=/usr/libexec/platform-python
+

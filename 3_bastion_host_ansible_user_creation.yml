@@ -1,0 +1,33 @@
+---
+## Prepare bastion host
+## run this best from cmd-line like this
+##   ansible-playbook -i invetory/hosts --ask-pass prep_bastion_host.yml
+##   this will ask for root password of bastion host
+
+
+- hosts: bastion_host
+  gather_facts: no
+
+  vars:
+    # you have to generate a hash for your user password
+    # install httpd tools > dnf install -y httpd-tools
+    # generate your hash via > htpasswd  -cB /tmp/xx root
+    # open the file /tmp/xx and copy your hash here
+    password: "$2y$05$qVyqR1GweauPjFlT6kZ6n.0SnX4tOVgybq9CBTQD3l05NnTmXOAIO"
+
+  tasks:
+   - name: Add Ansible user 'ansible', include to group wheel
+     user:
+       name: ansible
+       groups: wheel
+       password: "{{ password }}"
+       append: yes
+       state: present
+
+   - name: Change to passwordless sudo 
+     lineinfile:
+       path: /etc/sudoers
+       state: present
+       regexp: '^%wheel'
+       line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+       validate: 'visudo -cf %s'

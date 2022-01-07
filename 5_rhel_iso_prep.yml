@@ -1,0 +1,168 @@
+---
+- hosts: bastion_host
+  gather_facts: no
+  #become: true
+
+  tasks:
+
+   - name: Mount installation ISO read-only
+     ansible.builtin.mount:
+       path: "{{ mnt_dir }}"
+       src:  "{{ org_iso }}"
+       fstype: "iso9660"
+       opts: loop,ro
+       state: mounted
+     become: true
+
+   - name: Create a working directory if it does not exist
+     file:
+       path: "{{ wrk_dir }}"
+       state: directory
+
+   - name: Copy ISO content to workingdir (needs to run as root otherwise all files will change ownership)
+     copy:
+       src:  "{{ mnt_dir }}/"
+       dest: "{{ wrk_dir }}/"
+       remote_src: yes
+     become: true
+
+   - name: Unmount installation ISO
+     mount:
+       path: "{{ mnt_dir }}"
+       state: unmounted
+     become: true
+
+   - name: Create ks.cfg file
+     file:
+       path: "{{ wrk_dir }}/ks.cfg"
+       state: touch
+     become: true
+
+   - name: Create and fill ks.cfg (beware of vars!)
+     become: true 
+     #create: true
+     blockinfile:
+       path: "{{ wrk_dir }}/ks.cfg"
+       block: |
+         #version=RHEL8
+         # Use graphical install
+         #graphical
+         shutdown
+         eula --agreed
+         %packages
+         @^minimal-environment
+         kexec-tools
+         %end
+         # Keyboard layouts
+         keyboard --xlayouts= "{{ keyboard_layout  }}"
+         # System language
+         lang "{{ system_language }}"
+         # Network information
+         network  --bootproto= "{{ network_bootproto }}" --device=enp1s0 --ipv6=auto --activate
+         #network  --hostname=bastion.local
+         # Run the Setup Agent on first boot
+         firstboot --enable
+         ignoredisk --only-use=vda
+         autopart
+         # Partition clearing information
+         clearpart --none --initlabel
+         # System timezone
+         timezone "{{ time_zone }}" --isUtc --nontp
+         # Root password
+         rootpw --iscrypted $6$8y3IIZuF3En4OjsP$Z3JwrmZHGnUkmCuTpqWe9yC/HcrdNmhv6.ec6vDdVfaC8u1lVbohpgfHGn/O9OqMwHVK2JmXWlkgDl5xQS1Ov0
+         %addon com_redhat_kdump --enable --reserve-mb='auto'
+         %end
+         %anaconda
+         pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+         pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+         pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+         %end
+
+   - name: Edit isolinux.cfg file so testing media is NOT the default option
+     become: yes
+     #become_user: root
+     lineinfile:
+       path: "{{ wrk_dir }}/isolinux/isolinux.cfg"
+       # String to Search
+       regexp: "menu default"
+       # State is set to Absent to remove if the Searching Line is found
+       state: absent
+
+   - name: Create an entry in the boot menu (isolinux.cfg), which is the default option, allowing to boot using ks.cfg
+     become: yes
+     blockinfile:
+       path: "{{ wrk_dir }}/isolinux/isolinux.cfg"
+       insertbefore: "label check\n"
+       block: |
+         label kickstart
+           menu label ^Kickstart Installation of RHEL8.5
+           menu default
+           kernel vmlinuz
+           append initrd=initrd.img inst.stage2=hd:LABEL=RHEL-8-5-0-BaseOS-x86_64 inst.ks=cdrom:/ks.cfg
+
+
+   - name: Delete the file grub.cfg
+     become: yes
+     file:
+       path: "{{ wrk_dir }}/EFI/BOOT/grub.cfg"
+       state: absent
+
+   - name: Create blank grub.cfg file
+     file:
+       path: "{{ wrk_dir }}/EFI/BOOT/grub.cfg"
+       state: touch
+     become: true
+
+   - name: Fill the content of grub.cfg
+     become: yes
+     #create: yes
+     blockinfile:
+       path: "{{ wrk_dir }}/EFI/BOOT/grub.cfg"
+       block: |
+         ### BEGIN /etc/grub.d/10_linux ###
+         menuentry 'Install Red Hat Enterprise Linux 8.5' --class fedora --class gnu-linux --class gnu --class os {
+         linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=RHEL-8-5-0-BaseOS-x86_64 inst.ks=cdrom:/ks.cfg
+         initrdefi /images/pxeboot/initrd.img
+         }
+
+   - name: Assure destination directory to be in place
+     file:
+       path: "{{ bastion_iso_dir }}"
+       state: directory
+       modification_time: preserve
+       access_time: preserve
+     become: true
+
+     #- name: Remove original ISO file so we have storage space to create the new custom ISO
+     #become: true
+     #file:
+      #path: "{{ org_iso }}"
+      #state: absent
+
+   - name: Create customized RHEL 8-5 iso image
+     shell: 'mkisofs -o {{ cust_iso }} -b isolinux/isolinux.bin -J -R -l -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e images/efiboot.img -no-emul-boot --joliet-long -graft-points -V "RHEL-8-5-0-BaseOS-x86_64" {{ wrk_dir }}'
+     become: true
+
+   - name: Make it UEFI bootable
+     shell: "isohybrid --uefi {{ cust_iso }}"
+     become: true
+
+   - name: Implant md5 to iso in case it needs to be tested on boot #not really needed, but added just in case
+     shell: "implantisomd5 {{ cust_iso }}"
+     become: true
+
+   - name: Unmount installation ISO 
+     mount:
+       path: "{{ mnt_dir }}"
+       state: unmounted
+     become: true
+
+   - name: Remove workingdir with ISO content
+     file:
+       path: "{{ item }}"
+       state: absent
+     become: true
+     loop:
+        - "{{ wrk_dir }}"
+        - "{{ mnt_dir }}"
+     # needs to run as root as file ownership will not allow deletion otherwise 

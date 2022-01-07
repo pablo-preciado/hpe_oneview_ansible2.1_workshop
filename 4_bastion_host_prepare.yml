@@ -1,0 +1,46 @@
+---
+- hosts: bastion_host
+  gather_facts: no
+  become: true
+
+  tasks:
+   - name: Install packages needed
+     yum:
+       name: 
+         - httpd
+         - genisoimage
+         - wget
+         - curl
+         - mkisofs
+         - syslinux
+         - isomd5sum
+       state: latest
+
+   - name: Start httpd
+     service:
+       name: httpd
+       state: started
+       enabled: true
+
+   - name: Assure destination directory to be in place
+     file: 
+       path: "{{ bastion_iso_dir }}"
+       state: directory
+       modification_time: preserve
+       access_time: preserve
+     become: true
+
+   - name: Permit traffic in default zone for http service
+     firewalld:
+       service: http
+       permanent: yes
+       state: enabled
+
+   - name: Assure destination directory to be in place
+     file: 
+       path: /var/www/html/isos
+       state: directory
+       modification_time: preserve
+       access_time: preserve
+     become: true
+

@@ -1,0 +1,56 @@
+---
+##################
+#OneView Variables
+##################
+
+# Oneview configuration
+ov_template: Workshop
+
+# OneView Server profile Template creation
+server_profile_template_name: "{{ ov_template }}"
+server_hardware_type_name: "SY 480 Gen10 4"
+enclosure_group_name: "Demo1_Rack12_EG"
+deployment_network_name: "Redhat_workload"
+
+############################
+# RHEL 8.5 Install variables
+############################
+
+#URL for downloading the ISO file
+iso_url: https://access.cdn.redhat.com/content/origin/files/sha256/1f/1f78e705cd1d8897a05afa060f77d81ed81ac141c2465d4763c0382aa96cadd0/rhel-8.5-x86_64-dvd.iso?user=46606641cfc6a3ae593c2684110d9148&_auth_=1641415419_be0f699132c7cfed36b6ca8f6c4be49c
+
+#ISO file names
+org_iso_file: rhel-8.5-x86_64-dvd.iso
+cust_iso_file: custom_rhel.iso
+
+#Directories
+bastion_iso_dir: /var/www/html/isos
+mnt_dir:  /tmp/rhel_cdrom_mount
+wrk_dir:  /tmp/rhel_cdrom
+
+#Absolute names for orginal and custom iso
+org_iso:  "{{ bastion_iso_dir }}/{{ org_iso_file }}"
+cust_iso: "{{ bastion_iso_dir }}/{{ cust_iso_file }}"
+
+##################################
+#Variables for configuring ks.cfg
+##################################
+
+#Language
+keyboard_layout: "'es'" #keep the ' symbol
+system_language: "en_US.UTF-8"
+
+#Network related (righ now this automation is only ready for dhcp)
+
+network_bootproto: "dhcp"
+#host_name: rhel.local
+
+#Other stuff
+time_zone: "Europe/Paris"
+
+##################################
+#Variable for booting from html
+##################################
+
+bastion_get_url: "http://{{ hostvars.bastion_host.ansible_host }}/isos"
+rhel_installiso: "{{ bastion_get_url }}/{{ cust_iso_file }}"
