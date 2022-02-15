@@ -14,3 +14,5 @@
       domain: hpecic.net
       search_string: ''
     register: gather_all_domain_user_group_result
+    delegate_to: localhost
+
