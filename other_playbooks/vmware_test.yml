@@ -5,7 +5,7 @@
 
   tasks:
   - name: Make sure requirements are met to run vmware modules
-     ansible.builtin.pip:
+    ansible.builtin.pip:
       name: pyVmomi
       state: present 
     
