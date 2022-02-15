@@ -13,6 +13,6 @@
       validate_certs: false
       domain: hpecic.net
       search_string: ''
-    register: gather_all_domain_user_group_result
+    #register: gather_all_domain_user_group_result
     delegate_to: localhost
 
