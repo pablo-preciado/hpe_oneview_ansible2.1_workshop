@@ -1,10 +1,15 @@
 ---
 - hosts: localhost
   gather_facts: no
-  become: true
+  become: false
 
   tasks:
-
+  - name: Make sure requirements are met to run vmware modules
+     become: true
+     ansible.builtin.pip:
+      name: pyVmomi
+      state: present 
+    
   - name: Gather all domain user and group of vsphere.local
     community.vmware.vcenter_domain_user_group_info:
       hostname: "{{ vcenter_name }}"
