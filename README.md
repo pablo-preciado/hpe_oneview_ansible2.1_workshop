@@ -394,7 +394,7 @@ Remember, you can directly [download the Execution Environments images through G
 This is not necessary but you can check if all the dependencies are installed in your container with podman (this could be useful if you need to troubleshoot something). If you want to do so, run the following command:
 
 ```
-podman -rm --it localhost/oneview-ee:1 /bin/bash
+podman run --rm -it localhost/oneview-ee:1 /bin/bash
 ```
 
 This command will run an interactive container using the oneview-ee:1 image we created before and will allow you to run commands inside the container. You can check which versions of ansible, python packages and collections were installed. Run the following commands inside the container and take some time to look at the outputs:
